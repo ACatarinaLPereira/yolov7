@@ -1,0 +1,1 @@
+python detect.py --weights yolov7.pt --source inference/images/horses.jpg
