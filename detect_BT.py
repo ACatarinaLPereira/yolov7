@@ -1,3 +1,5 @@
+#run: python detect_BT.py --source videos_yolo/palace2s.mp4  --weights yolov7.pt --conf 0.1 --img-size 640 --device cpu --names data/drone.names
+
 import argparse
 import time
 from pathlib import Path
@@ -11,8 +13,7 @@ import numpy as np
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_
-optimizer, set_logging, increment_path
+    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
