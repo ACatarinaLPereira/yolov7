@@ -1,3 +1,7 @@
+
+# ESTADO DO CODIGO:
+#  - Ha 3 flags neste ficheiro que tem de estar em True para poder fazer data augmentation com imagens IR e EO (IMAGES_EO_IR)
+#  - Neste momento esta so preparado para receber folder com o mesmo numero e ordem das imagens de background visivel e infravermelho 
 #!/usr/bin/env python
 # coding=utf-8
 
@@ -79,6 +83,8 @@ class MyConfig(Config):
     IMAGE_MIN_DIM = 416
     IMAGE_MAX_DIM = 416
 
+    IMAGES_EO_IR = True
+
     class_ids = [class_id for class_id in range(1, len(class_names) + 1)]
 
     generate_master_informations = True
@@ -128,22 +134,38 @@ class MyConfig(Config):
 
     train_images_folder = base_folder + "train_source/"
     test_images_folder = base_folder + "test_source/"
-    background_images_folder = base_folder + "negative/"
-    output_folder = base_folder + "train/"
+    background_images_EO_folder = base_folder + "negative_EO/"
+    background_images_IR_folder = base_folder + "negative_IR/"
+    output_folder_EO = base_folder + "train_EO/"
+    output_folder_IR = base_folder + "train_IR/"
 
     #pickled_objects_path = train_images_folder + "pickled_objects.pkl"
 
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-        print("Folder", output_folder, "was created")
+    if not os.path.exists(output_folder_EO):
+        os.makedirs(output_folder_EO)
+        print("Folder", output_folder_EO, "was created")
 
-    background_image_path_list = get_list(background_images_folder, pattern='*.png')
+    background_image_EO_path_list = get_list(background_images_EO_folder, pattern='*.png')
 
-    if len(background_image_path_list) < 1:
-        print("Please add some background images into", background_images_folder)
+    if len(background_image_EO_path_list) < 1:
+        print("Please add some background images into", background_images_EO_folder)
         sys.exit()
     else:
-        print("Found", len(background_image_path_list), "background images")
+        print("Found", len(background_image_EO_path_list), "background images")
+
+    if IMAGES_EO_IR == True:
+
+        if not os.path.exists(output_folder_IR):
+            os.makedirs(output_folder_IR)
+            print("Folder", output_folder_IR, "was created")
+
+        background_image_IR_path_list = get_list(background_images_IR_folder, pattern='*.png')
+
+        if len(background_image_IR_path_list) < 1:
+            print("Please add some background images into", background_images_IR_folder)
+            sys.exit()
+        else:
+            print("Found", len(background_image_IR_path_list), "background images")    
 
 
 config = MyConfig()
@@ -170,22 +192,25 @@ def rescale_image(image, scale_factor):
     return rescaled_image
 
 
-def export_image_to_yolo(image_id, image):
+def export_image_to_yolo(image_id, image, image_type):
 
-    output_folder = config.output_folder
+    if image_type == 'ir':
+        output_folder = config.output_folder_IR
+    else:
+        output_folder = config.output_folder_EO
+
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     image_filename = output_folder + "%06d.png" % image_id
-    print("Writing", image_filename)
+    print("Writing image", image_filename)
     plt.imsave(image_filename, image)
-
 
 def export_labels_to_yolo(image_id, masks, class_ids):
     num_masks = len(masks)
     image_height = masks[0].shape[0]
     image_width = masks[0].shape[1]
-    label_folder = config.output_folder
+    label_folder = config.output_folder_EO
     if not os.path.exists(label_folder):
         os.makedirs(label_folder)
     label_filename = "%06d.txt" % image_id
@@ -393,12 +418,20 @@ class MyDataset(utils.Dataset):
         self.class_id_dict = None
         self.class_names_dict = None
         self.background_images_dict = None
+        self.background_images_IR_dict = None
         self.source_image_path_list = None
         self.object_dict = None
 
-        print("Loading background images")
-        self.load_background_images()
+        IMAGES_EO_IR_config = True
+
+        print("Loading background visible images")
+        self.load_background_images(IMAGES_EO_IR_config)
         print("Done.")
+        
+        if IMAGES_EO_IR_config:
+            print("Loading background infrared images")
+            self.load_background_images(IMAGES_EO_IR_config)
+            print("Done.")
 
         self.init_class_names()
 
@@ -426,24 +459,36 @@ class MyDataset(utils.Dataset):
         #self.extract_masks_and_image_patches(config.pickled_objects_path)
         self.extract_masks_and_image_patches()
 
-        self.compute_source_images_stats()
+        self.compute_source_images_stats(IMAGES_EO_IR_config)
         #self.compute_test_images_stats()
 
-    def compute_source_images_stats(self):
+    def compute_source_images_stats(self, ir_flag):
         print("\n### source images stats:")
 
-        background_images_widths = list(map(lambda i: i["image"].shape[1], self.background_images_dict.values()))
-        print(background_images_widths)
-        min_background_width = np.min(background_images_widths)
-        max_background_width = np.max(background_images_widths)
-        avg_background_width = np.mean(background_images_widths)
+        background_images_EO_widths = list(map(lambda i: i["image"].shape[1], self.background_images_dict.values()))
+        #print(background_images_widths)
+        min_background_EO_width = np.min(background_images_EO_widths)
+        max_background_EO_width = np.max(background_images_EO_widths)
+        avg_background_EO_width = np.mean(background_images_EO_widths)
 
-        print("\nnum background images: %i" % len(self.background_images_dict.values()))
-        print("min background width: %i" % min_background_width)
-        print("min background width: %i" % avg_background_width)
-        print("min background width: %i" % max_background_width)
+        print("\nnum background visible images: %i" % len(self.background_images_dict.values()))
+        print("min background visible width: %i" % min_background_EO_width)
+        print("min background visible width: %i" % avg_background_EO_width)
+        print("min background visible width: %i" % max_background_EO_width)
+        
+        if ir_flag:
+            background_images_IR_widths = list(map(lambda i: i["image"].shape[1], self.background_images_IR_dict.values()))
+            #print(background_images_widths)
+            min_background_IR_width = np.min(background_images_IR_widths)
+            max_background_IR_width = np.max(background_images_IR_widths)
+            avg_background_IR_width = np.mean(background_images_IR_widths)
 
-        for class_id in self.object_dict.keys():
+            print("\nnum background infrared images: %i" % len(self.background_images_IR_dict.values()))
+            print("min background infrared width: %i" % min_background_IR_width)
+            print("min background infrared width: %i" % avg_background_IR_width)
+            print("min background infrared width: %i" % max_background_IR_width)
+
+        for class_id in self.object_dict.keys():    #VAI SER PRECISO MEXER AQUI PORQUE SE USA IMAGENS VIS PARA NORMALIZAR  
             patches_list = self.object_dict[class_id]
             min_relative_width = None
             avg_relative_width = None
@@ -451,12 +496,12 @@ class MyDataset(utils.Dataset):
 
             class_mask_widths = list(map(lambda p: p["mask"].shape[1], patches_list))
 
-            try:
-                min_relative_width = float(np.min(class_mask_widths))/max_background_width
-                max_relative_width = float(np.max(class_mask_widths))/min_background_width
-                avg_relative_width = float(np.average(class_mask_widths))/avg_background_width
-            except ValueError as e:
-                print(e)
+            #try:
+                #min_relative_width = float(np.min(class_mask_widths))/max_background_width
+                #max_relative_width = float(np.max(class_mask_widths))/min_background_width
+                #avg_relative_width = float(np.average(class_mask_widths))/avg_background_width
+            #except ValueError as e:
+                #print(e)
 
             print("\n class: %s id: %i" % (self.class_names_dict[class_id], class_id))
             print("num masks:          %i" % len(patches_list))
@@ -522,7 +567,7 @@ class MyDataset(utils.Dataset):
 
         image = self.load_image(image_id)
         image_shape = (image.shape[0], image.shape[1])
-        print(image_shape)
+        print('fffffffffffffffffffffffffffffffff',image_shape)
 
         #file_path = self.image_info[image_id]['json_path']
         #if os.path.exists(file_path):
@@ -585,8 +630,10 @@ class MyDataset(utils.Dataset):
 
         if os.path.exists(image_path):
             image = skimage.io.imread(image_path)
+            print('pppppppppppppppppppp', image.shape)
             if image.ndim != 3:
                 image = skimage.color.gray2rgb(image)
+                print('pppppppppppppppppppp', image.shape)
         else:
             print("Image ", image_path, " not found")
 
@@ -680,7 +727,7 @@ class MyDataset(utils.Dataset):
         if occupied_regions_list is None:
             occupied_regions_list = []
 
-        start_x, end_x, start_y, end_y = compute_random_position(background_image.shape, mask_patch.shape)
+        start_x, end_x, start_y, end_y = compute_random_position(background_image.shape, mask_patch.shape)  ##################
         bb1 = {'x1': start_x, 'x2': end_x, 'y1': start_y, 'y2': end_y}
 
         valid_position = True
@@ -688,7 +735,7 @@ class MyDataset(utils.Dataset):
             occupied_regions_list.append([start_x, end_x, start_y, end_y])
             return valid_position, start_x, end_x, start_y, end_y
 
-        else:
+        else:    #No caso de so se colar um UAV na imagem nada disto vai ser um problema
             for i in range(0, len(occupied_regions_list)):
                 current_start_x, current_end_x, current_start_y, current_end_y = occupied_regions_list[i]
                 bb2 = {'x1': current_start_x, 'x2': current_end_x, 'y1': current_start_y, 'y2': current_end_y}
@@ -710,11 +757,13 @@ class MyDataset(utils.Dataset):
             print("WARNING No free region found with iou_threshold =", iou_threshold)
             return valid_position, start_x, end_x, start_y, end_y
 
-    def load_background_images(self):
-        background_images_dict = {}
-        for i in range(0, len(config.background_image_path_list)):
-            background_images_dict[i] = {}
-            image_path = config.background_image_path_list[i]
+    def load_background_images(self, ir_flag):
+        background_images_EO_dict = {}
+        background_images_IR_dict = {}
+
+        for i in range(0, len(config.background_image_EO_path_list)):
+            background_images_EO_dict[i] = {}
+            image_path = config.background_image_EO_path_list[i]
             image_rgb = skimage.io.imread(image_path) 
             #print('imageeeeee antes', image_rgb.shape)
             alpha_data = np.ones((image_rgb.shape[0], image_rgb.shape[1]), dtype=int)*255
@@ -724,29 +773,49 @@ class MyDataset(utils.Dataset):
             image = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2RGBA)
             image[:,:,3] = alpha_data
             #print('imageeeeee', image.shape)
-            background_images_dict[i]["image"] = image
+            background_images_EO_dict[i]["image"] = image
 
-        self.background_images_dict = background_images_dict
+        self.background_images_dict = background_images_EO_dict 
+        
+        if ir_flag: #separa se assim os dois no caso em que falte uma imagem IR por exemplo, ou seja se a quantidade de imagens background Eo e IR for diferente
+            for i in range(0, len(config.background_image_IR_path_list)):
+                background_images_IR_dict[i] = {}
+                image_path = config.background_image_IR_path_list[i]
+                image_rgb = skimage.io.imread(image_path) 
+                #print('imageeeeee antes', image_rgb.shape)
+                alpha_data = np.ones((image_rgb.shape[0], image_rgb.shape[1]), dtype=int)*255
+                #np.zeros((image_shape[0], image_shape[1], num_object_instances), dtype=bool)
+                #alpha_data[:,:] = 1
+                #print(alpha_data)
+                image = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2RGBA)
+                image[:,:,3] = alpha_data
+                #print('imageeeeee', image.shape)
+                background_images_IR_dict[i]["image"] = image
+
+            self.background_images_IR_dict = background_images_IR_dict
 
     def get_random_background_image(self):
 
         i = randint(0, len(self.background_images_dict) - 1)
-        return self.background_images_dict[i]["image"].copy()
+        return self.background_images_dict[i]["image"].copy(), i
 
         # background_image_id = randint(0, len(config.background_image_path_list) - 1)
         # image_path = config.background_image_path_list[background_image_id]
         # background_image = skimage.io.imread(image_path)
         # return background_image
 
-    def generate_augmented_image(self):
+    def generate_augmented_image(self, ir_flag):
         """
         Creates an augmented image with random background, random objects and random
         object positions. With iou_threshold > 0.0 objects are allowed to overlap.
         """
         print("\nGenerating augmented image")
 
-        background_image = self.get_random_background_image()
-        print('background_image',background_image.shape)
+        background_image_EO, i = self.get_random_background_image()   # Isto de momento esta a assumir que ha sempre o mesmo numero de imagens IR e EO nos folders e que tem o mesmo nome ou pelo menos a mesma ordem
+        #print(i)
+        if ir_flag:
+            background_image_IR = self.background_images_IR_dict[i]["image"].copy()
+        #print('background_image',background_image.shape)
         selected_class_ids = []
         inserted_class_ids = []
         background_masks = []
@@ -773,8 +842,8 @@ class MyDataset(utils.Dataset):
             if config.allow_scaling:
                 print("    Rescaling mask patch")
                 random_relative_size = round(random.uniform(config.min_relative_size, config.max_relative_size), 3)
-                relative_mask_height = float(mask_patch.shape[0]) / background_image.shape[0]
-                relative_mask_width = float(mask_patch.shape[1]) / background_image.shape[1]
+                relative_mask_height = float(mask_patch.shape[0]) / background_image_EO.shape[0]
+                relative_mask_width = float(mask_patch.shape[1]) / background_image_EO.shape[1]
                 scale_factor = min(random_relative_size / relative_mask_width,
                                    random_relative_size / relative_mask_height)
 
@@ -824,7 +893,7 @@ class MyDataset(utils.Dataset):
         
 
             print("    Finding position in image")
-            valid_position, start_x, end_x, start_y, end_y = self.get_valid_position(background_image,
+            valid_position, start_x, end_x, start_y, end_y = self.get_valid_position(background_image_EO,
                                                                                      mask_patch,
                                                                                      config.iou_threshold,
                                                                                      occupied_regions_list)
@@ -833,12 +902,13 @@ class MyDataset(utils.Dataset):
                 return None
 
             # make sure object mask is not bigger than background image
-            assert(mask_patch.shape[0] <= background_image.shape[0] and
-                   mask_patch.shape[1] <= background_image.shape[1])
+            #se isto for verdadeiro para as imagens visiveis maiores tb vai ser verdadeiro para a IR depois de fazer os scaling
+            assert(mask_patch.shape[0] <= background_image_EO.shape[0] and
+                   mask_patch.shape[1] <= background_image_EO.shape[1])
 
-            print("    Applying patch")
+            print("    Applying patch on the visible image")
             #print('image patch', image_patch.shape)
-            background_image_patch = background_image[start_x:end_x, start_y:end_y, :]
+            background_image_EO_patch = background_image_EO[start_x:end_x, start_y:end_y, :]
             #print('background_image_patch', background_image_patch.shape)
             #print('len x', image_patch.shape[0])
             #print('len y', image_patch.shape[1])
@@ -846,30 +916,57 @@ class MyDataset(utils.Dataset):
                 for k in range(0, image_patch.shape[1]-1):
                     if image_patch[j, k, 3] == 255:
                         #background_image_patch[mask_rgb == True] = image_patch[mask_rgb == True]
-                        background_image_patch[j, k, :] = image_patch[j, k, :]
-            background_image[start_x:end_x, start_y:end_y, :] = background_image_patch
+                        background_image_EO_patch[j, k, :] = image_patch[j, k, :]
+            background_image_EO[start_x:end_x, start_y:end_y, :] = background_image_EO_patch
 
-            current_mask = np.zeros((background_image.shape[0], background_image.shape[1]))
+            current_mask = np.zeros((background_image_EO.shape[0], background_image_EO.shape[1]))
             current_mask[start_x:end_x, start_y:end_y] = mask_patch
             background_masks.append(current_mask)
-            print('background_image antes de brightness', background_image.shape) 
+            print('background_image antes de brightness', background_image_EO.shape) 
             inserted_class_ids.append(class_id)
+
+            if ir_flag: # Aqui e preciso fazer o scaling da imagem do drone para que fique com as mesmas dimensoes relativas a imagem visivel no caso de ter resolucoes diferentes
+                print("    Applying patch on the infrared image")
+                print('image patch', image_patch.shape)
+                background_image_IR_patch = background_image_IR[start_x:end_x, start_y:end_y, :]
+                #print('background_image_patch', background_image_patch.shape)
+                #print('len x', image_patch.shape[0])
+                #print('len y', image_patch.shape[1])
+                for j in range(0, image_patch.shape[0]-1):
+                    for k in range(0, image_patch.shape[1]-1):
+                        if image_patch[j, k, 3] == 255:
+                            #background_image_patch[mask_rgb == True] = image_patch[mask_rgb == True]
+                            background_image_IR_patch[j, k, :] = 210
+                background_image_IR[start_x:end_x, start_y:end_y, :] = background_image_IR_patch
+
+                current_mask = np.zeros((background_image_IR.shape[0], background_image_IR.shape[1]))
+                current_mask[start_x:end_x, start_y:end_y] = mask_patch
+                background_masks.append(current_mask)
+                print('background_image antes de brightness', background_image_IR.shape) 
+                inserted_class_ids.append(class_id)
 
         if config.allow_random_brightness:
             print("  Applying random brightness")
             random_brightness_factor = np.random.uniform() + config.min_brightness
-            background_image = apply_random_brightness(background_image, random_brightness_factor)
-            print('background_image', background_image.shape)
+            background_image_EO = apply_random_brightness(background_image_EO, random_brightness_factor)
+            if ir_flag:
+                background_image_IR = apply_random_brightness(background_image_IR, random_brightness_factor)
+            #print('background_image', background_image.shape)
             # TODO:
             # random brightness for patches and background should be separate, to emulate
             # different lighting of objects and environment
 
-        return background_image, background_masks, np.asarray(inserted_class_ids, dtype=int)
+        if ir_flag:
+            return background_image_EO, background_image_IR, background_masks, np.asarray(inserted_class_ids, dtype=int)
+        else:
+            return background_image_EO, background_masks, np.asarray(inserted_class_ids, dtype=int)
 
     def generate_data(self):
         """
         Exports augmented images and YOLO labels.
         """
+        IMAGES_EO_IR = True
+
         print('generate data')
         if config.generate_master_informations:
             for i in range(0, len(self.source_image_path_list)):
@@ -886,13 +983,21 @@ class MyDataset(utils.Dataset):
             augmented_object = None
 
             while augmented_object is None:
-                augmented_object = self.generate_augmented_image()
+                augmented_object = self.generate_augmented_image(IMAGES_EO_IR)
 
-            image, masks, class_ids = augmented_object
-            print('qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq', image.shape)
-            export_image_to_yolo(output_image_index, image)
-            export_labels_to_yolo(output_image_index, masks, class_ids)
-            output_image_index += 1
+            if IMAGES_EO_IR:
+                image_EO, image_IR, masks, class_ids = augmented_object
+                #print('qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq', image.shape)
+                export_image_to_yolo(output_image_index, image_EO, 'eo')
+                export_image_to_yolo(output_image_index, image_IR, 'ir')
+                export_labels_to_yolo(output_image_index, masks, class_ids)
+                output_image_index += 1
+            else:
+                image_EO, masks, class_ids = augmented_object
+                #print('qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq', image.shape)
+                export_image_to_yolo(output_image_index, image_EO, 'eo')
+                export_labels_to_yolo(output_image_index, masks, class_ids)
+                output_image_index += 1
 
 
 # Load and display random samples

@@ -1,0 +1,8 @@
+
+
+DONE background_images_folder = background_images_EO_folder     
+DONE background_image_path_list = background_image_EO_path_list
+self.background_images_dict = self.background_images_EO_dict
+
+
+mudar o ==true
