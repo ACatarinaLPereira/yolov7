@@ -929,6 +929,14 @@ class MyDataset(utils.Dataset):
                 print("    Applying patch on the infrared image")
                 print('image patch', image_patch.shape)
                 background_image_IR_patch = background_image_IR[start_x:end_x, start_y:end_y, :]
+                #Esta mudanca de tamanho das imagens de paqtch assume que a visivel vai ter mais resolucao que a infravermelho
+                print(background_image_IR.shape[0])
+                print(background_image_IR.shape[1])
+                scale_factor_x = background_image_IR.shape[0] / background_image_EO.shape[0]
+                print(scale_factor_x)
+                scale_factor_y = background_image_IR.shape[1] / background_image_EO.shape[1]
+                image_patch = scipy.ndimage.zoom(image_patch, (scale_factor_x, scale_factor_y, 1), order=1)
+                print('image patch ggggggggggggggg', image_patch.shape)
                 #print('background_image_patch', background_image_patch.shape)
                 #print('len x', image_patch.shape[0])
                 #print('len y', image_patch.shape[1])
@@ -936,7 +944,7 @@ class MyDataset(utils.Dataset):
                     for k in range(0, image_patch.shape[1]-1):
                         if image_patch[j, k, 3] == 255:
                             #background_image_patch[mask_rgb == True] = image_patch[mask_rgb == True]
-                            background_image_IR_patch[j, k, :] = 210
+                            background_image_IR_patch[j, k, :] = 220
                 background_image_IR[start_x:end_x, start_y:end_y, :] = background_image_IR_patch
 
                 current_mask = np.zeros((background_image_IR.shape[0], background_image_IR.shape[1]))
