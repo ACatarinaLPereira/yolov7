@@ -103,8 +103,8 @@ class MyConfig(Config):
     iou_threshold = 0.25
 
     allow_scaling = True
-    min_relative_size = 0.1
-    max_relative_size = 0.5
+    min_relative_size = 0.5
+    max_relative_size = 0.6
 
     allow_rotating = True
     min_angle = 0
@@ -928,23 +928,33 @@ class MyDataset(utils.Dataset):
             if ir_flag: # Aqui e preciso fazer o scaling da imagem do drone para que fique com as mesmas dimensoes relativas a imagem visivel no caso de ter resolucoes diferentes
                 print("    Applying patch on the infrared image")
                 print('image patch', image_patch.shape)
-                background_image_IR_patch = background_image_IR[start_x:end_x, start_y:end_y, :]
-                #Esta mudanca de tamanho das imagens de paqtch assume que a visivel vai ter mais resolucao que a infravermelho
-                print(background_image_IR.shape[0])
-                print(background_image_IR.shape[1])
                 scale_factor_x = background_image_IR.shape[0] / background_image_EO.shape[0]
-                print(scale_factor_x)
                 scale_factor_y = background_image_IR.shape[1] / background_image_EO.shape[1]
                 image_patch = scipy.ndimage.zoom(image_patch, (scale_factor_x, scale_factor_y, 1), order=1)
-                print('image patch ggggggggggggggg', image_patch.shape)
-                #print('background_image_patch', background_image_patch.shape)
-                #print('len x', image_patch.shape[0])
-                #print('len y', image_patch.shape[1])
+                #image_patch = skimage.color.rgb2gray(image_patch)
+                image_patch_gray = np.zeros((image_patch.shape[0], image_patch.shape[1]), dtype=int)
+                image_patch_gray[:,:] = cv2.cvtColor(image_patch[:,:,0:3], cv2.COLOR_RGB2GRAY)
+                print ('dddddddddddd', image_patch_gray.shape)
+                image_patch[:,:,0:3] = cv2.cvtColor(image_patch_gray, cv2.COLOR_GRAY2RGB)
+                #image_patch[:,:,0:2] = image_patch_gray[:,:,0:2]
+                mask_patch = scipy.ndimage.zoom(mask_patch, (scale_factor_x, scale_factor_y), order=0)
+                print('image patchhhhhhh ', image_patch.shape)
+                start_x = int(start_x * scale_factor_x)
+                print('start x', start_x)
+                end_x = start_x + image_patch.shape[0]
+                print('end x', end_x)
+                start_y = int(start_y * scale_factor_y)
+                end_y = start_y + image_patch.shape[1]
+                background_image_IR_patch = background_image_IR[start_x:end_x, start_y:end_y, :]
+                #Esta mudanca de tamanho das imagens de patch assume que a visivel vai ter mais resolucao que a infravermelho
+                print(background_image_IR.shape[0])
+                print(background_image_IR.shape[1])
+                print(scale_factor_x)
+                print(scale_factor_y)
                 for j in range(0, image_patch.shape[0]-1):
                     for k in range(0, image_patch.shape[1]-1):
                         if image_patch[j, k, 3] == 255:
-                            #background_image_patch[mask_rgb == True] = image_patch[mask_rgb == True]
-                            background_image_IR_patch[j, k, :] = 220
+                            background_image_IR_patch[j, k, :] = image_patch[j, k, :]
                 background_image_IR[start_x:end_x, start_y:end_y, :] = background_image_IR_patch
 
                 current_mask = np.zeros((background_image_IR.shape[0], background_image_IR.shape[1]))
@@ -955,7 +965,7 @@ class MyDataset(utils.Dataset):
 
         if config.allow_random_brightness:
             print("  Applying random brightness")
-            random_brightness_factor = np.random.uniform() + config.min_brightness
+            random_brightness_factor = np.random.uniform() + config.min_brightness 
             background_image_EO = apply_random_brightness(background_image_EO, random_brightness_factor)
             if ir_flag:
                 background_image_IR = apply_random_brightness(background_image_IR, random_brightness_factor)
