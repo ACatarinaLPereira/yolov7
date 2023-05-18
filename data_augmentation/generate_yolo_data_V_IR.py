@@ -933,9 +933,13 @@ class MyDataset(utils.Dataset):
                 image_patch = scipy.ndimage.zoom(image_patch, (scale_factor_x, scale_factor_y, 1), order=1)
                 #image_patch = skimage.color.rgb2gray(image_patch)
                 image_patch_gray = np.zeros((image_patch.shape[0], image_patch.shape[1]), dtype=int)
+                image_patch_rgb = np.zeros((image_patch.shape[0], image_patch.shape[1], 3), dtype=int)
                 image_patch_gray[:,:] = cv2.cvtColor(image_patch[:,:,0:3], cv2.COLOR_RGB2GRAY)
                 print ('dddddddddddd', image_patch_gray.shape)
-                image_patch[:,:,0:3] = cv2.cvtColor(image_patch_gray, cv2.COLOR_GRAY2RGB)
+                image_patch_gray = np.float32(image_patch_gray)
+                image_patch_rgb = cv2.cvtColor(image_patch_gray, cv2.COLOR_GRAY2RGB)
+                print ('dddddddddddd', image_patch_rgb.shape)
+                image_patch[:,:,0:3] = image_patch_rgb
                 #image_patch[:,:,0:2] = image_patch_gray[:,:,0:2]
                 mask_patch = scipy.ndimage.zoom(mask_patch, (scale_factor_x, scale_factor_y), order=0)
                 print('image patchhhhhhh ', image_patch.shape)
